@@ -1,57 +1,38 @@
 version: 0.2
 
-env:
-  variables:
-    ACCOUNT_ID: "713881797197"
-    REGION: "us-east-1"
-    REPO_NAME: "ecommerce-ecr"
-    IMAGE_TAG: "latest"
-    SONAR_PROJECT_KEY: "capstone-project"
-    SONAR_HOST_URL: "http://34.205.76.160"
-    SONAR_TOKEN: "sqp_8aed92df03ce943bee02e05a373650103be72daa"
-
 phases:
   install:
     runtime-versions:
-      nodejs: 18
+      nodejs: 18  # You can change to 16 or 20 if needed
     commands:
-      - echo Installing Node.js dependencies...
+      - echo "Installing Node.js dependencies..."
       - npm install
-      - echo Installing SonarScanner CLI...
-      - curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-      - unzip sonar-scanner.zip
-      - mv sonar-scanner-* sonar-scanner
-      - export PATH=$PATH:$(pwd)/sonar-scanner/bin
 
   pre_build:
     commands:
-      - echo Adding SonarScanner to PATH...
-      - export PATH=$PATH:$(pwd)/sonar-scanner/bin
-      - echo Running SonarQube analysis...
-      - sonar-scanner -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.sources=. -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_TOKEN
-      - echo Logging in to Amazon ECR...
+      - echo "Logging in to Amazon ECR..."
+      - ACCOUNT_ID=423623849965
+      - REGION=us-east-1
+      - REPO_NAME=backend
+      - IMAGE_TAG=latest
       - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
 
   build:
     commands:
-      - echo Building Docker image...
+      - echo "Building Docker image..."
       - docker build -t ${REPO_NAME}:${IMAGE_TAG} .
       - docker tag ${REPO_NAME}:${IMAGE_TAG} ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${IMAGE_TAG}
 
   post_build:
     commands:
-      - set -e
-      - echo Pushing Docker image to Amazon ECR...
+      - echo "Pushing Docker image to Amazon ECR..."
       - docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${IMAGE_TAG}
-      - echo Creating final deployment files...
+      - echo "Creating final deployment files..."
       - mkdir -p k8s-out
-      - echo "--- Checking k8s directory structure ---"
-      - ls -l k8s
       - sed "s|IMAGE_PLACEHOLDER|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${IMAGE_TAG}|g" k8s/deployment.yaml > k8s-out/deployment.yaml
       - cp k8s/service.yaml k8s-out/service.yaml
       - cp k8s/mongodb-deployment.yaml k8s-out/mongodb-deployment.yaml
       - cp k8s/mongodb-service.yaml k8s-out/mongodb-service.yaml
-      - echo "--- Contents of k8s-out ---"
       - ls -R k8s-out
 
 artifacts:
